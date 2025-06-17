@@ -33,7 +33,15 @@ typedef struct {
     float jumppower;
 
 
+    bool atacando;
+    int ataque_timer;
+    int ataque_cooldown; // tempo até poder atacar novamente
+
+
+
 } Fighter;
+
+
 
 
 
@@ -90,7 +98,6 @@ void fighter_movement( Fighter *F, vec2d desloc ){
     F->hitbox.y = F->pos.y - F->hitbox.h;
 }
 
-
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~O~~~~~~~~~~| M A I N |~~~~~~~~~~~O~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 int main(int argc, char *argv[]){
 
@@ -99,6 +106,7 @@ int main(int argc, char *argv[]){
     int width = 600;
     int height = 400;
     int cx, cy;
+    int c2x, c2y;
     int loop = 1;
 
 
@@ -119,41 +127,146 @@ int main(int argc, char *argv[]){
     WALL_R = width;
     FLOOR_Y = height - 100;
 
-    // prime the random number generator
     SDL_srand(0);
+
+
+
+    //TEXTURAS
+
+    SDL_Texture *Fundo = IMG_LoadTexture(R,"C:/Users/Alunos EIL/Desktop/CEO-Clash-main/CEO-Clash-main/Assets/ceu1.png");
+    float fundow, fundoh;
+    SDL_GetTextureSize(Fundo, &fundow, &fundoh);
+
+    SDL_Texture *Fundo2 = IMG_LoadTexture(R,"C:/Users/Alunos EIL/Desktop/CEO-Clash-main/CEO-Clash-main/Assets/ceu2.png");
+    float fundo2w, fundo2h;
+    SDL_GetTextureSize(Fundo2, &fundo2w, &fundo2h);
+
+    SDL_Texture *Fundo3 = IMG_LoadTexture(R,"C:/Users/Alunos EIL/Desktop/CEO-Clash-main/CEO-Clash-main/Assets/morros3.png");
+    float fundo3w, fundo3h;
+    SDL_GetTextureSize(Fundo3, &fundo3w, &fundo3h);
+
+    SDL_Texture *Fundo4 = IMG_LoadTexture(R,"C:/Users/Alunos EIL/Desktop/CEO-Clash-main/CEO-Clash-main/Assets/pred4.png");
+    float fundo4w, fundo4h;
+    SDL_GetTextureSize(Fundo4, &fundo4w, &fundo4h);
+
+    SDL_Texture *Fundo5 = IMG_LoadTexture(R,"C:/Users/Alunos EIL/Desktop/CEO-Clash-main/CEO-Clash-main/Assets/pred5.png");
+    float fundo5w, fundo5h;
+    SDL_GetTextureSize(Fundo5, &fundo5w, &fundo5h);
+    
+
+
+
+     //TEXTURAS PERSONAGENS
+
+    SDL_Texture *Piwis = IMG_LoadTexture(R, "C:/Users/Alunos EIL/Desktop/CEO-Clash-main/CEO-Clash-main/Assets/Pinto_outline.png");
+    float fw, fh;
+    SDL_GetTextureSize(Piwis, &fw, &fh);
 
     Transform T = (Transform){256,256,cx,cy,1,1};
     int scaleI = 0;
 
+    SDL_Texture *Piwispez = IMG_LoadTexture(R, "C:/Users/Alunos EIL/Desktop/CEO-Clash-main/CEO-Clash-main/Assets/piwispez.png");
+    SDL_GetTextureSize(Piwispez, &fw, &fh);
 
+
+
+    SDL_Texture *Melon = IMG_LoadTexture(R, "C:/Users/Alunos EIL/Desktop/CEO-Clash-main/CEO-Clash-main/Assets/Sus.png");
+    float cyberw, cyberh;
+    SDL_GetTextureSize(Melon, &cyberw, &cyberh);
+
+    Transform I = (Transform){256,256,c2x,c2y,1,1};
+    int scaleT = 0;
     
-    
+    SDL_Texture *pat1 = IMG_LoadTexture(R,"C:/Users/Alunos EIL/Desktop/CEO-Clash-main/CEO-Clash-main/Assets/piwisAT1.png");
+    float pat1w, pat1h;
+    SDL_GetTextureSize(pat1, &pat1w, &pat1h);
+
+
+
+
+    SDL_Texture *Fundo6 = IMG_LoadTexture(R,"C:/Users/Alunos EIL/Desktop/CEO-Clash-main/CEO-Clash-main/Assets/pred6.png");
+    float fundo6w, fundo6h;
+    SDL_GetTextureSize(Fundo6, &fundo6w, &fundo6h);
+
+
+
+// ATAQUE
+
+    void processar_ataque(Fighter *A, Fighter *B){
+    if (A->atacando) {
+        A->ataque_timer--;
+        if (A->ataque_timer <= 0) {
+            A->atacando = false;
+            A->ataque_cooldown = 30; // 0.5s de recarga a 60fps
+        }
+
+        // Verifica colisão com o outro personagem
+        SDL_FRect ataque_hitbox = A->hitbox;
+        ataque_hitbox.w *= 1.5;
+        if (A->direcao < 0) {
+            ataque_hitbox.x -= ataque_hitbox.w * 0.5;
+        } else {
+            ataque_hitbox.x += ataque_hitbox.w * 0.5;
+        }
+
+        if (SDL_FRect_overlap(&ataque_hitbox, &(B->hitbox))) {
+            //efeito do ataque
+            SDL_SetRenderDrawColor(R, 255, 0, 0, 100);
+            SDL_RenderFillRect(R, &ataque_hitbox);
+            B->vel.x = A->direcao * 10; // knockback
+            B->no_controle = false;
+        }
+    }
+
+    if (A->ataque_cooldown > 0) {
+        A->ataque_cooldown--;
+    }
+}
+
+
+
+
+//  HITBOXES PERSONAGENS
+
 
     Fighter P1 = {0};
     P1.pos = v2d( 100, FLOOR_Y );
-    P1.hitbox.w = 200;
-    P1.hitbox.h = 350;
+    P1.hitbox.w = fw*0.2;
+    P1.hitbox.h = fh*0.2;
     P1.hitbox.x = P1.pos.x - 0.5 * P1.hitbox.w;
     P1.hitbox.y = P1.pos.y - P1.hitbox.h;
     P1.walkspeed = 5;
-    P1.jumppower = -20;
+    P1.jumppower = -30;
+    P1.direcao = 0;
+    P1.atacando = false;
+    P1.ataque_timer = 0;
+    P1.ataque_cooldown = 0;
 
     Fighter P2 = {0};
     P2.pos = v2d( width-100, FLOOR_Y );
-    P2.hitbox.w = 250;
-    P2.hitbox.h = 300;
+    P2.hitbox.w = cyberw*0.5;
+    P2.hitbox.h = cyberh*0.5;
     P2.hitbox.x = P2.pos.x - 0.5 * P2.hitbox.w;
     P2.hitbox.y = P2.pos.y - P2.hitbox.h;
     P2.walkspeed = 5;
-    P2.jumppower = -20;
+    P2.jumppower = -40;
+    P2.direcao = 1;
+    P2.atacando = false;
+    P2.ataque_timer = 0;
+    P2.ataque_cooldown = 0;
 
 
     bool p1u = 0, p1d = 0, p1l = 0, p1r = 0; // up down left right
     bool p2u = 0, p2d = 0, p2l = 0, p2r = 0;
 
     
-    //our desired frame period
     int frame_period = SDL_roundf( 1000 / 60.0 );
+
+
+
+//EXECUTANDO
+
+
 
     SDL_Log("<<Entering Loop>>");
     while ( loop ) { //>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> L O O P <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< 
@@ -173,6 +286,18 @@ int main(int argc, char *argv[]){
                     else if( event.key.key == SDLK_DOWN  ) p2d = 1;
                     else if( event.key.key == SDLK_LEFT  ) p2l = 1;
                     else if( event.key.key == SDLK_RIGHT ) p2r = 1;
+                    else if( event.key.key == SDLK_SPACE ) {
+                         if (!P1.atacando && P1.ataque_cooldown == 0) {
+                              P1.atacando = true;
+                              P1.ataque_timer = 10; // duração do ataque em frames
+                            }
+                               }
+                    else if( event.key.key == SDLK_RETURN ) {
+                         if (!P2.atacando && P2.ataque_cooldown == 0) {
+                              P2.atacando = true;
+                              P2.ataque_timer = 10;
+                            }
+                               }
                     break;
                 case SDL_EVENT_KEY_UP:
                          if( event.key.key == 'w' ) p1u = 0;
@@ -194,11 +319,34 @@ int main(int argc, char *argv[]){
         SDL_RenderLine( R, 0, FLOOR_Y, width, FLOOR_Y );
 
 
+
+
+        SDL_FRect fundodest = {0,0,width,height};
+        SDL_RenderTexture(R, Fundo, NULL, &fundodest);
+
+        SDL_FRect fundo2dest = {0,0,width,height};
+        SDL_RenderTexture(R, Fundo2, NULL, &fundo2dest);
+
+        SDL_FRect fundo3dest = {0,0,width,height};
+        SDL_RenderTexture(R, Fundo3, NULL, &fundo3dest);
+
+        SDL_FRect fundo4dest = {0,0,width,height};
+        SDL_RenderTexture(R, Fundo4, NULL, &fundo4dest);
+
+        SDL_FRect fundo5dest = {0,0,width,height};
+        SDL_RenderTexture(R, Fundo5, NULL, &fundo5dest);
+
+
+
+
         vec2d desloc1 = desloc_from_controls( &P1, p1u, p1d, p1l, p1r );
         vec2d desloc2 = desloc_from_controls( &P2, p2u, p2d, p2l, p2r );
         
         fighter_movement( &P1, desloc1 );
         fighter_movement( &P2, desloc2 );
+
+        processar_ataque(&P1, &P2);
+        processar_ataque(&P2, &P1);
         
         if( SDL_FRect_overlap( &(P1.hitbox), &(P2.hitbox) ) ){
             Fighter *LF;
@@ -217,15 +365,30 @@ int main(int argc, char *argv[]){
             RF->hitbox.x = RF->pos.x - 0.5 * RF->hitbox.w;
         }
 
-        SDL_SetRenderDrawColor( R, 0,0,255,255 );
-        SDL_RenderRect( R, &(P1.hitbox) );
-        SDL_SetRenderDrawColor( R, 255,0,0,255 );
-        SDL_RenderRect( R, &(P2.hitbox) );
+        int flip1;
+        if( P1.direcao < 0 ) flip1 = 1;
+        else if( P1.direcao > 0 ) flip1 = 0;
+        SDL_RenderTextureRotated(R, Piwis, NULL, &(P1.hitbox), 0, NULL, flip1);
+
+        int flip2;
+        if( P2.direcao > 0 ) flip2 = 1;
+        else if( P2.direcao < 0 ) flip2 = 0;
+        SDL_RenderTextureRotated(R, Melon, NULL, &(P2.hitbox), 0, NULL, flip2);
 
 
-        // throw things up onscreen
+        if (P1.atacando) {
+            SDL_FRect hb = P1.hitbox;
+            if (P1.direcao < 0) hb.x -= hb.w * 0.5;
+            else hb.x += hb.w * 0.5;
+            SDL_RenderTextureRotated(R, pat1, NULL, &(P1.hitbox), 0, NULL, flip1);
+        }
+
+    
+        SDL_FRect fundo6dest = {0,0,width,height};
+        SDL_RenderTexture(R, Fundo6, NULL, &fundo6dest);
+
+        
         SDL_RenderPresent(R);
-        // try to maintain constant framerate
         SDL_framerateDelay( frame_period );
 
     }//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> / L O O P <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
