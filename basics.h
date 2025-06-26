@@ -1,20 +1,6 @@
 #ifndef BASICS_H_INCLUDED
 #define BASICS_H_INCLUDED
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <math.h>
-#include <stdbool.h>
-#include <string.h>
-#include <ctype.h>
-#include <stdint.h>
-#include <stdarg.h>
-
-//#include <dirent.h>
-#include <errno.h>
-#include <locale.h>
-
 #include <SDL.h>
 #include <SDL_image.h>
 
@@ -74,8 +60,7 @@ SDL_Color SDL_GetRender_SDL_Color( SDL_Renderer *R );
 Uint32 lerp_color( Uint32 CA, Uint32 CB, float amt );
 SDL_Color lerp_SDL_Color( SDL_Color CA, SDL_Color CB, float amt );
 
-//format = %Y.%m.%d %H-%M-%S.png
-void save_screenshot( SDL_Renderer *renderer, char *format, SDL_Rect *rct );
+void save_screenshot( SDL_Renderer *renderer, SDL_Rect *rct );
 void save_texture(const char* file_name, SDL_Renderer* renderer, SDL_Texture* texture);
 
 // NUMBERS, MATH ---------------------------------------------------------------------------
@@ -91,7 +76,6 @@ int get_divisors( int *list, int N );
 // RANDOM: "array rules" min inclusive, max not inclusive
 int randomI( int min, int max );
 float randomF( float min, float max );
-int random( int min, int max );
 double random_angle();
 int random_from_list( int n, ... );
 double random_gaussian();
@@ -142,11 +126,9 @@ void str_delete_char( char *string, int pos, int len );
 
 
 typedef struct stringbuilder{
-
    char *str;
    int len;
    int cap;
-
 } STRB;
 
 void STRB_init( STRB *S, int sz );
@@ -166,7 +148,8 @@ void STRB_insert_str( STRB *S, char *str, int pos );
 void STRB_delete( STRB *S, int pos );
 void STRB_delete_range( STRB *S, int start, int stop );
 
-char STRB_event_handler( STRB *S, int *cursor, SDL_Event *event );
+// return whether it 'captured' the event
+int STRB_event_handler( STRB *S, int *cursor, SDL_Event *event );
 
 
 void insert_sorted( int* list, int *len, int N );
@@ -176,43 +159,52 @@ void Lshift_str( char *str, int n );
 void strtrim( char *string );
 void strtrim_fgetsd_str( char *string );
 
-char getgc( FILE *f );
-int lines_in_a_file( FILE* f );
-bool fseek_lines( FILE* f, int N );
-bool fseek_string( FILE *f, char *str );
-bool fseek_string_before( FILE *f, char *str, char *terminator );
-void fseek_category( FILE *f, bool(*cateorize)(char c) );
-void fskip_whitespace( FILE *f );
-void fscan_str_until( FILE *f, char *dest, char *terminator, int size );
-void fscan_str_until_any( FILE *f, char *dest, char *terminators, int size );
-int f_count_char_until( FILE *f, char it, char *terminator );
 
-//fscan a comma-separated list of strings (or any other separator char)
-//length of output list in placed into n (optional, just send NULL elsewise)
-//must free output[0] (which contains all the chars), and then output itself (which is the list)
-char **fscan_cslist( FILE *f, int *n, char separator );
+//char getgc( SDL_IOStream *f );
+//int lines_in_a_file( SDL_IOStream* f );
+bool fseek_lines( SDL_IOStream* f, int N );
+bool fseek_string( SDL_IOStream *f, char *str );
+//bool fseek_string_before( SDL_IOStream *f, char *str, char *terminator );
+//void fseek_category( SDL_IOStream *f, bool(*categorize)(char c) );
+void fskip_whitespace( SDL_IOStream *f );
+void fscan_str_until( SDL_IOStream *f, char *dest, int size, char *terminator );
+void fscan_str_until_any( SDL_IOStream *f, char *dest, int size, char *terminators );
+//int f_count_char_until( SDL_IOStream *f, char it, char *terminator );
+//
+////fscan a comma-separated list of strings (or any other separator char)
+////length of output list in placed into n (optional, just send NULL elsewise)
+////must free output[0] (which contains all the chars), and then output itself (which is the list)
+//char **fscan_cslist( SDL_IOStream *f, int *n, char separator );
+//
+//void fgets_but_good( SDL_IOStream *f, char *dest, int size );
+//
+//void load_file_as_str( char *filename, char **out );
 
-void fgets_but_good( FILE *f, char *dest, int size );
+struct tag_data{
+   Sint64 *locations;
+   int *indices;
+   int length;
+};
+void free_tag_data( struct tag_data *td );
+// tags at indices <= stopper halt the search.
+struct tag_data tag_finder( SDL_IOStream *f, const char tags[][24], int length, int stopper );
 
-void load_file_as_str( char *filename, char **out );
-
-void get_filenames( char *directory, char ***list, int *length );
 
 // just replaces the last '/' with a '\0'
 void up_one_folder( char *path );
 
 Uint16 *ascii_to_unicode( char *str );
 
-bool cursor_in_rect( SDL_Event *event, SDL_Rect *R );
-bool coordinates_in_Rect( float x, float y, SDL_Rect *R );
+bool cursor_in_rect( SDL_Event *event, SDL_FRect *R );
+bool coordinates_in_Rect( float x, float y, SDL_FRect *R );
 bool coordinates_in_FRect( float x, float y, SDL_FRect *R );
 bool SDL_Rect_overlap( SDL_Rect *A, SDL_Rect *B );
 bool SDL_FRect_overlap( SDL_FRect *A, SDL_FRect *B );
 bool rect_overlap( int Ax, int Ay, int Aw, int Ah, int Bx, int By, int Bw, int Bh );
-bool intersecting_or_touching( SDL_Rect *A, SDL_Rect *B);
-SDL_Rect add_rects( SDL_Rect *A, SDL_Rect *B);
+bool intersecting_or_touching( SDL_FRect *A, SDL_FRect *B);
+SDL_FRect add_rects( SDL_FRect *A, SDL_FRect *B);
 //scale and translate A to fit inside B, centralized
-void fit_rect( SDL_Rect *A, SDL_Rect *B );
+void fit_rect( SDL_FRect *A, SDL_FRect *B );
 
 
 Uint32 char4_to_int( char str [4] );
@@ -233,17 +225,14 @@ uint32_t UTF8_to_UINT32( char *str, int *bytes, int endianness );
 //returns the number of bytes written into str.
 int UINT32_to_UTF8( char *str, uint32_t num, int endianness );
 
-bool str_contains( char *str, bool(*cateorize)(char c) );
-bool str_contains_only( char *str, bool(*cateorize)(char c) );
+bool str_contains( char *str, bool(*categorize)(char c) );
+bool str_contains_only( char *str, bool(*categorize)(char c) );
 
 bool list_contains( int *list, int len, int x );
 int find_in_list( int *list, int len, int x );
 
 char shifted_keys( char c );
 
-void print_string_with_escape_chars_visible( char *str );
-void hard_print( char *str, int N );
-void hard_print_f( FILE *f, int N );
 //printf("{%d, %d, %d, %d}\n", rect.x, rect.y, rect.w, rect.h );
 
 //return elapsed time
@@ -257,17 +246,17 @@ bool i2d_equals( index2d A, index2d B );
 int i2d_manhattan( index2d A, index2d B );
 
 
-int rect_area( SDL_Rect *r );
+int rect_area( SDL_FRect *r );
 
 typedef struct{
    int len, size;
-   SDL_Rect *rcts;
-   SDL_Rect original;
+   SDL_FRect *rcts;
+   SDL_FRect original;
 } rectCluster;
 
 void rectCluster_init( rectCluster *rC, int x, int y, int w, int h );
 
-void clip_rectCluster( rectCluster *rC, SDL_Rect cut );
+void clip_rectCluster( rectCluster *rC, SDL_FRect cut );
 
 int rectCluster_area( rectCluster *rC );
 

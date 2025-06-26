@@ -79,7 +79,7 @@ SDL_Color SDL_GetRender_SDL_Color( SDL_Renderer *R ){
 }
 
 Uint8 bytelerp( Uint8 start, Uint8 stop, float amt ){
-	return start + (Uint8)round((stop-start) * amt);
+	return start + (Uint8)SDL_roundf((stop-start) * amt);
 }
 
 Uint32 lerp_color( Uint32 CA, Uint32 CB, float amt ){
@@ -114,39 +114,23 @@ SDL_Color lerp_SDL_Color( SDL_Color CA, SDL_Color CB, float amt ){
 
 
 
-void save_screenshot( SDL_Renderer *renderer, char *format, SDL_Rect *rct ){
+void save_screenshot( SDL_Renderer *renderer, SDL_Rect *rct ){
 
-	char str [128];
-
-	if( strcchr( format, '%' ) > 0 ){
-		time_t rawtime;
-		struct tm * timeinfo;
-		time ( &rawtime );
-		timeinfo = localtime ( &rawtime );
-		strftime( str, 127, format, timeinfo );
-	}
-	else{
-		strcpy( str, format );
-	}
-
-	int w = 0;
-	int h = 0;
-	if( rct == NULL ){
-		SDL_GetCurrentRenderOutputSize( renderer, &w, &h );
-	}
-	else{
-		w = rct->w;
-		h = rct->h;
-	}
+	SDL_Time ticks;
+	SDL_GetCurrentTime( &ticks );
+	SDL_DateTime dt;
+	SDL_TimeToDateTime( ticks, &dt, true );
+	char str [32];
+	SDL_snprintf( str, 32, "%d-%d-%d %d.%d.%d.png", dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second );
 
 	SDL_Surface *surf = SDL_RenderReadPixels( renderer, rct );
 	
 	if( IMG_SavePNG( surf, str ) ){
 		SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't save file: %s", SDL_GetError());
 	}
-	SDL_UnlockSurface(surf);
-	SDL_DestroySurface(surf);
+	SDL_DestroySurface( surf );
 }
+
 void save_texture(const char* file_name, SDL_Renderer* renderer, SDL_Texture* texture) {
     SDL_Texture* otarget = SDL_GetRenderTarget(renderer);
     SDL_SetRenderTarget(renderer, texture);
@@ -184,12 +168,12 @@ double sq( double a ){
 }
 
 double logarithm( double base, double x ){
-	return log2( x ) / log2( base );
+	return SDL_log( x ) / SDL_log( base );
 }
 
 int get_divisors( int *list, int N ){
 	int c = 0;
-	int SQRT = floor(sqrt(N));
+	int SQRT = SDL_floor(SDL_sqrt(N));
 	if(N % 2 == 0) {
         for(int i = 2; i <= SQRT; i++) {
             if(N % i == 0) {
@@ -216,19 +200,13 @@ float randomF( float min, float max ){
     return min + SDL_randf() * (max-min);
 }
 
-
-int random( int min, int max ){
-    return (rand() % (max-min)) + min;
-}
-
 double random_angle(){
-	// RAND_MAX :    32767
-	//return 6.283185 * ( rand() / RAND_MAX );
-    return rand() * 0.0001917534503;
+	Uint32 r = SDL_rand_bits();
+    return r * ( TWO_PI / SDL_MAX_UINT32 );
 }
 
 int random_from_list(int n, ...){
-	int R = random( 0, n );
+	int R = randomI( 0, n );
 	va_list vl;
 	va_start(vl,n);
 	for (int i = 0; i < R; i++) va_arg( vl, int );
@@ -247,18 +225,18 @@ double random_gaussian(){
 
 	if(phase == 0) {
 		do {
-			double U1 = (double)rand() / RAND_MAX;
-			double U2 = (double)rand() / RAND_MAX;
+			double U1 = (double)(SDL_rand_bits()) / SDL_MAX_UINT32;
+			double U2 = (double)(SDL_rand_bits()) / SDL_MAX_UINT32;
 
 			V1 = 2 * U1 - 1;
 			V2 = 2 * U2 - 1;
 			S = V1 * V1 + V2 * V2;
 		} while(S >= 1 || S == 0);
 
-		X = V1 * sqrt(-2 * log(S) / S);
+		X = V1 * SDL_sqrt(-2 * SDL_log(S) / S);
 	}
 	else{
-		X = V2 * sqrt(-2 * log(S) / S);
+		X = V2 * SDL_sqrt(-2 * SDL_log(S) / S);
 	}
 	phase = 1 - phase;
 
@@ -267,7 +245,7 @@ double random_gaussian(){
 
 void shuffle( int *deck, int len ){
 	for (int i = 0; i < len-2; ++i){
-		int ni = random( i+1, len );
+		int ni = randomI( i+1, len );
 		int temp = deck[i];
 		deck[i] = deck[ni];
 		deck[ni] = temp;
@@ -283,18 +261,18 @@ double map(double value, double source_lo, double source_hi,  double dest_lo, do
 }
 
 double ellipticalMap(double value, double source_lo, double source_hi, double dest_lo, double dest_hi){
-  return dest_hi +((dest_lo-dest_hi)/abs(dest_lo-dest_hi))*sqrt((1-(sq(value-source_lo)/sq(source_hi-source_lo)))*sq(dest_hi-dest_lo));
+  return dest_hi +((dest_lo-dest_hi)/SDL_fabs(dest_lo-dest_hi))*SDL_sqrt((1-(sq(value-source_lo)/sq(source_hi-source_lo)))*sq(dest_hi-dest_lo));
 }
 double sigmoidMap(double value, double source_lo, double source_hi, double dest_lo, double dest_hi){
-  return ( (dest_hi-dest_lo) * ( 1 / (1 + exp( -map( value, source_lo, source_hi, -6, 6 ) ) ) ) ) + dest_lo;
+  return ( (dest_hi-dest_lo) * ( 1 / (1 + SDL_exp( -map( value, source_lo, source_hi, -6, 6 ) ) ) ) ) + dest_lo;
 }
 double advSigmoidMap(double value, double source_lo, double source_hi, double Slo, double Shi, double dest_lo, double dest_hi){
-  return ( (dest_hi-dest_lo) * ( 1 / (1 + exp( -map( value, source_lo, source_hi, Slo, Shi ) ) ) ) ) + dest_lo;
+  return ( (dest_hi-dest_lo) * ( 1 / (1 + SDL_exp( -map( value, source_lo, source_hi, Slo, Shi ) ) ) ) ) + dest_lo;
 }
 
 int cycle( int a, int min, int max ){
-	if( a < min ) return max;
-	else if( a > max ) return min;
+	if( a < min ) return (max+1)-(min-a);
+	else if( a > max ) return (min-1)+(a-max);
 	else return a;
 }
 
@@ -339,28 +317,12 @@ double radians( double degrees ){
 
 
 double rectify_angle( double a ){
-	return fmod( a, TWO_PI );
-	/*LOL
-	if( a < 0 ){
-		//printf("++ %f, %f, %f, %f.\n", a, abs(a), abs(a)/TWO_PI, ceil( abs(a) / TWO_PI ) );
-		if( a >= -TWO_PI ) return TWO_PI + a;
-		else return (ceil( abs(a) / TWO_PI ) * TWO_PI) + a;
-	}
-	else{
-		if( a < TWO_PI ) return a;
-		else{
-			return a - (floor( a / TWO_PI ) * TWO_PI);
-		}
-	}*/
+	return SDL_fmod( a, TWO_PI );
 }
 double angle_diff( double a, double b ){
-	//return fmod(((a - b) + PI), TWO_PI ) - PI;
-
-	double o = fmod( a-b, TWO_PI );
+	double o = SDL_fmod( a-b, TWO_PI );
 	o += (o>PI) ? -TWO_PI : (o<-PI) ? TWO_PI : 0;
 	return o;
-
-	//return min( TWO_PI - fabs(a - b), fabs(a - b));
 }
 
 
@@ -374,17 +336,17 @@ double angle_diff( double a, double b ){
 
 
 void split( char *string, char *separator, char ***list, int *list_len ){
-	int len = strlen( string );
-	int seplen = strlen( separator );
-	*list_len = ceil( len / 6.0 );//heuristic
-	*list = malloc( (*list_len) * sizeof(char*) );
+	int len = SDL_strlen( string );
+	int seplen = SDL_strlen( separator );
+	*list_len = SDL_ceil( len / 6.0 );//heuristic
+	*list = SDL_malloc( (*list_len) * sizeof(char*) );
 	int L = 0;
 	int i = 0;
 	while( i < len ){
 
 		if( L >= *list_len ){
 			*list_len *= 2;
-			*list = realloc( *list, (*list_len) * sizeof(char*) );
+			*list = SDL_realloc( *list, (*list_len) * sizeof(char*) );
 		}
 		(*list)[ L++ ] = string + i;
 
@@ -412,7 +374,7 @@ void split( char *string, char *separator, char ***list, int *list_len ){
 		//++i;
 	}
 	*list_len = L;
-	*list = realloc( *list, (*list_len) * sizeof(char*) );
+	*list = SDL_realloc( *list, (*list_len) * sizeof(char*) );
 }
 	//apparently for strtok the string MUST be declared as "char string[]" in the calling function
 	// it can't be a literal and it can't be "char *string"...
@@ -422,7 +384,7 @@ void split( char *string, char *separator, char ***list, int *list_len ){
 	char string[] = "split me baby one more time";
 	split_string( string, " ", &list, &size );
 	for (int i = 0; i < size; ++i){
-	    printf("%s\n", list[i] );
+	    SDL_Log("%s\n", list[i] );
 	}
 	*/
 	// char * p = strtok (string, delimiters);
@@ -444,7 +406,7 @@ int strcchr( char *string, char C ){ // String Count character
 
 // sub-string
 char * substr( char *string, int start, int stop ){
-	char *sub = (char*) calloc( stop-start +1, sizeof(char) );
+	char *sub = (char*) SDL_calloc( stop-start +1, sizeof(char) );
 	for (int i = start; i < stop; ++i){
 		sub[i-start] = string[i];
 	}
@@ -482,10 +444,10 @@ bool str_insert_char( char *string, char C, int pos, int size ){
 }
 void str_insert_str( char *string, char *in, int pos ){
 	
-	int str_len = strlen(string)+1;
-	int in_len = strlen(in);
-	memmove ( string + pos + in_len, string + pos, str_len - pos );
-	memcpy ( string + pos, in, in_len );
+	int str_len = SDL_strlen(string)+1;
+	int in_len = SDL_strlen(in);
+	SDL_memmove ( string + pos + in_len, string + pos, str_len - pos );
+	SDL_memcpy ( string + pos, in, in_len );
 }
 void str_delete_char( char *string, int pos, int len ){
 	for (int i = pos; i < len; ++i){
@@ -500,7 +462,7 @@ void str_delete_char( char *string, int pos, int len ){
 void STRB_init( STRB *S, int sz ){
 	S->cap = sz;
 	if( sz > 0 ){
-		S->str = calloc( sz, sizeof(char) );
+		S->str = SDL_calloc( sz, sizeof(char) );
 	}else{
 		S->cap = 0;
 		S->str = NULL;
@@ -510,37 +472,37 @@ void STRB_init( STRB *S, int sz ){
 void STRB_ensure( STRB *S, int len ){
 	if( len >= S->cap ){
 		if( S->cap == 0 ){
-			S->cap = (ceil( len / 8.0 ) + 1 ) * 8;
+			S->cap = (SDL_ceil( len / 8.0 ) + 1 ) * 8;
 		}
 		else S->cap *= 2;
-		S->str = realloc( S->str, S->cap * sizeof(char) );
+		S->str = SDL_realloc( S->str, S->cap * sizeof(char) );
 	}
 }
 void STRB_reset( STRB *S, int sz ){
 	if( sz > 0 ){
 		S->cap = sz;
-		S->str = realloc( S->str, S->cap * sizeof(char) );
-		memset( S->str, 0, S->cap );
+		S->str = SDL_realloc( S->str, S->cap * sizeof(char) );
+		SDL_memset( S->str, 0, S->cap );
 	}
 	else if( S->str != NULL ){
 		S->cap = 0;
-		free( S->str );
+		SDL_free( S->str );
 		S->str = NULL;
 	}	
 	S->len = 0;
 }
 void STRB_justify( STRB *S ){
 	S->cap = S->len + 1;
-	S->str = realloc( S->str, S->cap * sizeof(char) );
+	S->str = SDL_realloc( S->str, S->cap * sizeof(char) );
 	S->str[ S->len ] = '\0';
 }
 void STRB_copy( STRB *S, char *str ){
 	if( str == NULL || str[0] == '\0' ){
 		STRB_reset( S, 0 );
 	}
-	S->len = strlen(str);
+	S->len = SDL_strlen(str);
 	STRB_ensure( S, S->len );
-	strcpy( S->str, str );
+	SDL_strlcpy( S->str, str, S->cap );
 }
 
 void STRB_append_char( STRB *S, char c ){
@@ -553,14 +515,14 @@ void STRB_append_utf8( STRB *S, uint32_t c, int endianness ){
 	int bytes = UINT32_to_UTF8( buf, c, endianness );
 	if( bytes <= 0 ) return;
 	STRB_ensure( S, S->len + bytes );
-	memcpy( S->str + S->len, buf, bytes );
+	SDL_memcpy( S->str + S->len, buf, bytes );
 	S->len += bytes;
 	S->str[S->len] = '\0';
 }
 void STRB_append_str( STRB *S, char *str ){
 	int sl = strlen(str);
 	STRB_ensure( S, S->len + sl );
-	memcpy( S->str + S->len, str, sl+1 );
+	SDL_memcpy( S->str + S->len, str, sl+1 );
 	S->len += sl;
 	S->str[S->len] = '\0';
 }
@@ -571,7 +533,7 @@ void STRB_insert_char( STRB *S, char c, int pos ){
 		return STRB_append_char( S, c );
 	}
 	STRB_ensure( S, S->len + 1 );
-	memmove( S->str + pos + 1, S->str + pos, (S->len+1) - pos );
+	SDL_memmove( S->str + pos + 1, S->str + pos, (S->len+1) - pos );
 	S->str[pos] = c;
 	S->len += 1;
 }
@@ -584,8 +546,8 @@ void STRB_insert_utf8( STRB *S, uint32_t c, int endianness, int pos ){
 	int bytes = UINT32_to_UTF8( buf, c, endianness );
 	if( bytes <= 0 ) return;
 	STRB_ensure( S, S->len + bytes );
-	memmove( S->str + pos + bytes, S->str + pos, (S->len+1) - pos );
-	memcpy( S->str + pos, buf, bytes );
+	SDL_memmove( S->str + pos + bytes, S->str + pos, (S->len+1) - pos );
+	SDL_memcpy( S->str + pos, buf, bytes );
 	S->len += bytes;
 }
 void STRB_insert_str( STRB *S, char *str, int pos ){
@@ -593,17 +555,17 @@ void STRB_insert_str( STRB *S, char *str, int pos ){
 	if( pos < 0 || pos >= S->len ){
 		return STRB_append_str( S, str );
 	}
-	int sl = strlen(str);
+	int sl = SDL_strlen(str);
 	STRB_ensure( S, S->len + sl );
-	memmove( S->str + pos + sl, S->str + pos, (S->len+1) - pos );
-	memcpy( S->str + pos, str, sl );
+	SDL_memmove( S->str + pos + sl, S->str + pos, (S->len+1) - pos );
+	SDL_memcpy( S->str + pos, str, sl );
 	S->len += sl;
 }
 
 void STRB_delete( STRB *S, int pos ){
 	if( pos < 0 ) pos += S->len;
 	if( pos < 0 || pos >= S->len ) return;
-	memmove( S->str + pos, S->str + pos + 1, S->len - pos );
+	SDL_memmove( S->str + pos, S->str + pos + 1, S->len - pos );
 	S->len -= 1;
 }
 void STRB_delete_range( STRB *S, int start, int stop ){
@@ -612,18 +574,18 @@ void STRB_delete_range( STRB *S, int start, int stop ){
 	if( stop - start <= 1 ){
 		return STRB_delete( S, start );
 	}
-	memmove( S->str + start, S->str + stop, (S->len+1) - stop );
+	SDL_memmove( S->str + start, S->str + stop, (S->len+1) - stop );
 	S->len -= stop - start;
 }
 
 
-char STRB_event_handler( STRB *S, int *cursor, SDL_Event *event ){
+int STRB_event_handler( STRB *S, int *cursor, SDL_Event *event ){
 
 	if( event->type == SDL_EVENT_KEY_DOWN ){
 
 		if( *cursor < 0 || *cursor > S->len ) *cursor = S->len;
 
-		//printf( "%c (%d)\n", sym, sym );
+		//SDL_Log( "%c (%d)\n", sym, sym );
 		SDL_Keycode sym = event->key.key;
 
 		if( sym == SDLK_LEFT ){
@@ -657,7 +619,7 @@ char STRB_event_handler( STRB *S, int *cursor, SDL_Event *event ){
 				}
 				else if( sym == 'v' ){
 					char *cb =  SDL_GetClipboardText();
-					int tl = strlen( cb );
+					int tl = SDL_strlen( cb );
 					STRB_insert_str( S, cb, *cursor );
 					*cursor += tl;
 					SDL_free( cb );
@@ -666,12 +628,12 @@ char STRB_event_handler( STRB *S, int *cursor, SDL_Event *event ){
 		}
 		return 1;
 	}
-	if( event->type == SDL_EVENT_MOUSE_BUTTON_DOWN ){
-		*cursor = -1;
-		return 1;
+	if( event->type == SDL_EVENT_KEY_UP ){
+		return 1; // capture keyups
 	}
 	if( event->type == SDL_EVENT_TEXT_INPUT ){
-		int tl = strlen( event->text.text );
+		int tl = SDL_strlen( event->text.text );
+		//SDL_Log( "SDL_EVENT_TEXT_INPUT: %s", event->text.text );
 		STRB_insert_str( S, event->text.text, *cursor );
 		*cursor += tl;
 		return 1;
@@ -721,15 +683,15 @@ void Lshift_str( char *str, int n ){
 }
 
 void strtrim( char *string ){
-	int len = strlen( string );
+	int len = SDL_strlen( string );
 	for(int i = len-1; i >= 0; i--){
-		if( !isspace( string[i] ) ){
+		if( !SDL_isspace( string[i] ) ){
 			string[i+1] = '\0';
 			break;
 		}
 	}
 	for (int i = 0; i < len; ++i){
-		if( !isspace( string[i] ) ){
+		if( !SDL_isspace( string[i] ) ){
 			//out = string + i;
 			if( i > 0 ) Lshift_str( string, i );
 			break;
@@ -738,7 +700,7 @@ void strtrim( char *string ){
 }
 
 void strtrim_fgetsd_str( char *string ){
-	int len = strlen( string );
+	int len = SDL_strlen( string );
 	if( string[len-2] == '\r' ){
 		string[len-2] = '\0';
 		return;
@@ -749,59 +711,60 @@ void strtrim_fgetsd_str( char *string ){
 	}
 }
 
+
+/*
 // get me a GOOD fucking character
-char getgc( FILE *f ){
+char getgc( SDL_IOStream *f ){
 	char c;
 	do{
-		c = fgetc( f ); 
+		c = SDL_ReadS8( f ); 
 	} while( c == '\r' );//What the fuck is a "carriage" anyways
 	return c;
 }
 
-int lines_in_a_file( FILE* f ){
+int lines_in_a_file( SDL_IOStream* f ){
 	rewind(f);
-    char c = fgetc(f);
+    char c = SDL_ReadS8(f);
     int lines = 1;
     while( c != EOF ){
         if (c == '\n') lines++;
-        c = fgetc(f);
+        c = SDL_ReadS8(f);
     }
     rewind(f);
     return lines;
 }
-
-bool fseek_lines( FILE* f, int N ){
-	char c = fgetc( f );
-	while( c != EOF ){
+*/
+bool fseek_lines( SDL_IOStream* f, int N ){
+	Uint8 c;
+	bool status = SDL_ReadS8( f, &c );
+	while( status ){
 		if( c == '\n' ){
 			N -= 1;
 			if( N <= 0 ) return 1;
 		}
-		c = fgetc( f );
+		status = SDL_ReadS8( f, &c );
 	}
-	puts("EOF!!!");
 	return 0;
 }
 
-bool fseek_string( FILE *f, char *str ){
-	char c = getgc( f );
+bool fseek_string( SDL_IOStream *f, char *str ){
+	Uint8 c;
+	bool status = SDL_ReadS8( f, &c );
 	int i = 0;
-	while( c != EOF ){
+	while( status ){
 		if( c == str[i] ){
 			i++;
 			if( str[i] == '\0' ) return 1;
-		}
-		else{
+		} else {
 			i = 0;
 		}
-		c = getgc( f );
+		status = SDL_ReadS8( f, &c );
 	}
-	//puts("EOF!!!");
 	return 0;
 }
 
-
-bool fseek_string_before( FILE *f, char *str, char *terminator ){
+/*
+bool fseek_string_before( SDL_IOStream *f, char *str, char *terminator ){
 	
 	long int original_pos = ftell( f );
 	int s = 0;
@@ -834,40 +797,43 @@ bool fseek_string_before( FILE *f, char *str, char *terminator ){
 	return 0;
 }
 
-void fseek_category( FILE *f, bool(*cateorize)(char c) ){
-	char c = getc( f );
+void fseek_category( SDL_IOStream *f, bool(*categorize)(char c) ){
+	char c = SDL_ReadS8( f );
 	while( c != EOF ){
-		if( cateorize( c ) ){
+		if( categorize( c ) ){
 			ungetc( (int)c, f );
 			return;// 1;
 		}
-		c = getc( f );
+		c = SDL_ReadS8( f );
 	}
 	return;// 0;
 }
-
-void fskip_whitespace( FILE *f ){
-	char c;
+*/
+void fskip_whitespace( SDL_IOStream *f ){
+	Uint8 c;
+	bool status;
 	do{
-		c = getc( f );
-	} while( c == ' ' );
-	ungetc( (int)c, f );
+		status = SDL_ReadS8( f, &c );
+	} while( status && ( c == ' ' || c == '\t' || c == '\r' || c == '\n' ) );
+	SDL_SeekIO( f, -1, SDL_IO_SEEK_CUR );
+	//ungetc( (int)c, f );
 }
 
-void fscan_str_until( FILE *f, char *dest, char *terminator, int size ){
+void fscan_str_until( SDL_IOStream *f, char *dest, int size, char *terminator ){
 
-	char c = getc( f );
+	Uint8 c;
+	bool status = SDL_ReadS8( f, &c );
 	int s = 0;
 	
-	while( c != EOF ){
+	while( status ){
 
 		if( c == terminator[0] ){
-			long int pos = ftell( f );
+			Sint64 pos = SDL_TellIO(f);
 			int t = 1;
 			while( terminator[t] != '\0' ){
-				c = getc( f );
-				if( c == EOF || c != terminator[t] ){
-					fseek( f, pos, SEEK_SET );
+				status = SDL_ReadS8( f, &c );
+				if( !status || c != terminator[t] ){
+					SDL_SeekIO( f, pos, SDL_IO_SEEK_SET );
 					c = terminator[0];
 					goto nvm;
 				}
@@ -880,20 +846,20 @@ void fscan_str_until( FILE *f, char *dest, char *terminator, int size ){
 			dest[ s++ ] = c;
 		}
 		if( s >= size-1 ) break;
-		c = getc( f );
+		status = SDL_ReadS8( f, &c );
 	}
 	end:
 	dest[ s ] = '\0';
 }
+/*
 
-
-char **fscan_cslist( FILE *f, int *n, char separator ){//fscan a 'comma' separated list of strings
+char **fscan_cslist( SDL_IOStream *f, int *n, char separator ){//fscan a 'comma' separated list of strings
 	long int original_pos = ftell( f );
 	int commas = 1;
 	int len = 0;
 	char c;
 	do{
-		c = getc(f);
+		c = SDL_ReadS8(f);
 		if( c == EOF ) break;
 		if( c == separator ) commas++;
 		len++;	
@@ -906,7 +872,7 @@ char **fscan_cslist( FILE *f, int *n, char separator ){//fscan a 'comma' separat
 	int i = 0;
 	int j = 0;
 	do{
-		c = getc(f);
+		c = SDL_ReadS8(f);
 		if( c == separator || c == '\n' || c == '\r' || c == EOF ){	
 			list[0][j++] = '\0';
 			if( c == '\n' || c == '\r' || c == EOF ) break;
@@ -918,7 +884,7 @@ char **fscan_cslist( FILE *f, int *n, char separator ){//fscan a 'comma' separat
 
 	//remove whitespace from the beginning of strings
 	for (int i = 1; i < commas; ++i ){
-		while( isspace( list[i][0] ) ){
+		while( SDL_isspace( list[i][0] ) ){
 			list[i] += 1;
 		}
 	}
@@ -926,10 +892,10 @@ char **fscan_cslist( FILE *f, int *n, char separator ){//fscan a 'comma' separat
 	return list;
 }
 
-int f_count_char_until( FILE *f, char it, char *terminator ){
+int f_count_char_until( SDL_IOStream *f, char it, char *terminator ){
 
 	int count = 0;
-	char c = getc( f );
+	char c = SDL_ReadS8( f );
 	
 	while( c != EOF ){
 
@@ -937,7 +903,7 @@ int f_count_char_until( FILE *f, char it, char *terminator ){
 			long int pos = ftell( f );
 			int t = 1;
 			while( terminator[t] != '\0' ){
-				c = getc( f );
+				c = SDL_ReadS8( f );
 				if( c == EOF || c != terminator[t] ){
 					fseek( f, pos, SEEK_SET );
 					c = terminator[0];
@@ -951,46 +917,44 @@ int f_count_char_until( FILE *f, char it, char *terminator ){
 			nvm:
 			if( c == it ) count++;
 		}
-		c = getc( f );
+		c = SDL_ReadS8( f );
 	}
 	end:
 	return count;
 }
-
-void fscan_str_until_any( FILE *f, char *dest, char *terminators, int size ){
+*/
+void fscan_str_until_any( SDL_IOStream *f, char *dest, int size, char *terminators ){
 	
-	char c = getc( f );
+	Uint8 c;
+	bool status = SDL_ReadS8( f, &c );
 	int s = 0;
-	while( c != EOF ){
-		int t = 0;
-		while( terminators[t] != '\0' ){
+	while( status ){
+		for( int t = 0; terminators[t] != '\0'; t++ ){
 			if( c == terminators[t] ){
 				goto end;
 			}
-			t++;
 		}
-		
 		dest[ s++ ] = c;
 		
 		if( s >= size-1 ) break;
-		c = getc( f );
+		status = SDL_ReadS8( f, &c );
 	}
 	end:
 	dest[ s ] = '\0';
 }
+/*
 
+void fgets_but_good( SDL_IOStream *f, char *dest, int size ){
 
-void fgets_but_good( FILE *f, char *dest, int size ){
-
-	char c = getc( f );
+	char c = SDL_ReadS8( f );
 	int s = 0;
 	bool skiplwp = 1;//skip leading whitespace
 	
 	while( c != EOF ){
 
 		if( skiplwp ){
-			if( isspace(c) ){
-				c = getc( f );
+			if( SDL_isspace(c) ){
+				c = SDL_ReadS8( f );
 				continue;
 			}
 			else skiplwp = 0;
@@ -1003,21 +967,21 @@ void fgets_but_good( FILE *f, char *dest, int size ){
 			dest[ s++ ] = c;
 		}
 		if( s >= size-1 ) break;
-		c = getc( f );
+		c = SDL_ReadS8( f );
 	}
 	dest[ s ] = '\0';
 }
 
 
 void load_file_as_str( char *filename, char **out ){
-	FILE *f = fopen( filename, "rb" );
+	SDL_IOStream *f = fopen( filename, "rb" );
 	if( f == NULL ){
-		printf("cannot open \"%s\"!\n", filename );
+		SDL_Log("cannot open \"%s\"!\n", filename );
 		return;
 	}
 	int len = 0;
 	do{
-		fgetc(f);
+		SDL_ReadS8(f);
 		len++;
 	} while( !feof(f) );
 
@@ -1031,38 +995,76 @@ void load_file_as_str( char *filename, char **out ){
 	fclose(f);
 	(*out)[i-1] = '\0';
 }
-/*
-void get_filenames( char *directory, char ***list, int *length ){
-	setlocale (LC_ALL, "");
-    DIR *dir;
-    struct dirent *ent;
-    dir = opendir( directory );
-    *list = NULL;
-    *length = 0;
-    readdir(dir);// getting rid of ./
-    //readdir(dir);// getting rid of ../
-    if (dir != NULL) {
-        while ((ent = readdir (dir)) != NULL) {
-        	//printf("%s\n", ent->d_name );
-            (*length) += 1;
-            (*list) = realloc( (*list), (*length) * sizeof(char*) );           
-            size_t len = strlen( ent->d_name );
-            (*list)[ (*length)-1 ] = calloc( len + 2, 1 );
-            memcpy( (*list)[ (*length)-1 ], ent->d_name, len );
-            if( ent->d_type == DT_DIR ){
-            	(*list)[ (*length)-1 ][ len ] = '/';
-            }
-            (*list)[ (*length)-1 ][ len+1 ] = '\0';
-        }
-        closedir (dir);
-    }
-    else { 
-        printf("ERROR: could not open directory: %s\n", directory );
-    }
-}
+
 */
+
+void free_tag_data( struct tag_data *td ){
+	SDL_free( td->locations );
+	SDL_free( td->indices );
+	//free( td );
+}
+
+
+struct tag_data tag_finder( SDL_IOStream *f, const char tags[][24], int length, int stopper ){
+	//printf("tag_data(%p, %p, %d, %d)\n", f, tags, length, stopper);
+	int *match = SDL_malloc( length * sizeof(int) );
+	int *taglen = SDL_malloc( length * sizeof(int) );
+
+	//printf("tag_finder\nlength: %d\ntags: ", length );
+	for ( int i = 0; i < length; ++i ){
+		match[i] = 0;
+		taglen[i] = SDL_strlen( tags[i] );
+	}
+
+	struct tag_data output;// = malloc( sizeof( struct tag_data ) );
+	output.locations = NULL;
+	output.indices = NULL;
+	output.length = 0;
+
+	Uint8 c;
+	bool status = SDL_ReadS8( f, &c );
+	while( status ){
+		for (int i = 0; i < length; ++i){
+
+			if( c == tags[i][ match[i] ] ){
+				match[i]++;
+				if( match[i] == taglen[i] ){
+					match[i] = 0;
+
+					if( i <= stopper ) goto end;
+
+					int I = output.length;
+					output.length += 1;
+					output.locations = SDL_realloc( output.locations, output.length * sizeof( Sint64 ) );
+					output.locations[I] = SDL_TellIO( f );
+					output.indices = SDL_realloc( output.indices, output.length * sizeof( int ) );
+					output.indices[I] = i;
+				}
+			}
+			//we are are not at the match yet, but we have to restart counting right away!
+			else if( match[i] > 0 ){
+				if( c == tags[i][0] ) match[i] = 1;
+				else match[i] = 0;
+			}
+		}
+		status = SDL_ReadS8( f, &c );
+	}
+
+	end:
+
+	SDL_free( match );
+	SDL_free( taglen );
+
+	return output;
+}
+
+
+
+
+
+
 void up_one_folder( char *path ){
-	int L = strlen( path );
+	int L = SDL_strlen( path );
 	for (int i = L-1; i >= 0; --i ){
 		if( path[i] == '/' || path[i] == '\\' ){
 			path[i] = '\0';
@@ -1074,8 +1076,8 @@ void up_one_folder( char *path ){
 
 
 Uint16 *ascii_to_unicode( char *str ){
-	int len = strlen( str );
-	Uint16 *out = malloc( len * sizeof(Uint16) );
+	int len = SDL_strlen( str );
+	Uint16 *out = SDL_malloc( len * sizeof(Uint16) );
 	int c = 0;
 	for( int i = 0; str[i] != '\0'; ++i ){
 		if( (str[i] & 0x80) == 0 ){
@@ -1097,12 +1099,12 @@ Uint16 *ascii_to_unicode( char *str ){
 			}
 		}
 	}
-	out = realloc( out, (len+1) * sizeof(Uint16) );
+	out = SDL_realloc( out, (len+1) * sizeof(Uint16) );
 	out[len] = '\0';
 	return out;
 }
 
-bool cursor_in_rect( SDL_Event *event, SDL_Rect *R ){
+bool cursor_in_rect( SDL_Event *event, SDL_FRect *R ){
 	switch (event->type) {
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		case SDL_EVENT_MOUSE_BUTTON_UP:
@@ -1114,7 +1116,7 @@ bool cursor_in_rect( SDL_Event *event, SDL_Rect *R ){
 	}
 }
 
-bool coordinates_in_Rect( float x, float y, SDL_Rect *R ){
+bool coordinates_in_Rect( float x, float y, SDL_FRect *R ){
 	return ( x > R->x && x < R->x + R->w ) && ( y > R->y && y < R->y + R->h );
 }
 bool coordinates_in_FRect( float x, float y, SDL_FRect *R ){
@@ -1129,12 +1131,12 @@ bool SDL_FRect_overlap( SDL_FRect *A, SDL_FRect *B ){
 bool rect_overlap( int Ax, int Ay, int Aw, int Ah, int Bx, int By, int Bw, int Bh ){
 	return ( ( Ax + Aw > Bx ) && ( Bx + Bw > Ax ) ) && ( ( Ay + Ah > By ) && ( By + Bh > Ay ) );
 }
-bool intersecting_or_touching( SDL_Rect *A, SDL_Rect *B){
+bool intersecting_or_touching( SDL_FRect *A, SDL_FRect *B){
 	return ( ( A->x + A->w >= B->x ) && ( B->x + B->w >= A->x ) ) && ( ( A->y + A->h >= B->y ) && ( B->y + B->h >= A->y ) );
 }
 
-SDL_Rect add_rects( SDL_Rect *A, SDL_Rect *B){
-	SDL_Rect out = *A;
+SDL_FRect add_rects( SDL_FRect *A, SDL_FRect *B){
+	SDL_FRect out = *A;
 	if( B->x < A->x ) out.x = B->x;
 	if( B->y < A->y ) out.y = B->y;
 	if( B->x + B->w > A->x + A->w  ) out.w = (B->x + B->w) - A->x;
@@ -1142,7 +1144,7 @@ SDL_Rect add_rects( SDL_Rect *A, SDL_Rect *B){
 	return out;
 }
 
-void fit_rect( SDL_Rect *A, SDL_Rect *B ){
+void fit_rect( SDL_FRect *A, SDL_FRect *B ){
 	float Ar = A->w / (float) A->h;
 	float Br = B->w / (float) B->h;
 	if( Ar > Br ){
@@ -1167,10 +1169,10 @@ void fit_rect( SDL_Rect *A, SDL_Rect *B ){
 
 /*
 char str [4] = "abcd";
-printf("%x%x%x%x\n", str[0], str[1], str[2], str[3] );
+SDL_Log("%x%x%x%x\n", str[0], str[1], str[2], str[3] );
 int n = char4_to_int( str );
 int_to_char4( n, str );
-printf("%x, %x%x%x%x\n", n, str[0], str[1], str[2], str[3] );
+SDL_Log("%x, %x%x%x%x\n", n, str[0], str[1], str[2], str[3] );
 */
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
 	Uint32 char4_to_int( char str [4] ){	
@@ -1212,15 +1214,15 @@ int count_digits( int n ){
 }
 
 
-bool str_contains( char *str, bool(*cateorize)(char c) ){
+bool str_contains( char *str, bool(*categorize)(char c) ){
     for (int i = 0; str[i] != '\0'; ++i ){
-        if( cateorize( str[i] ) ) return 1;
+        if( categorize( str[i] ) ) return 1;
     }
     return 0;
 }
-bool str_contains_only( char *str, bool(*cateorize)(char c) ){
+bool str_contains_only( char *str, bool(*categorize)(char c) ){
     for (int i = 0; str[i] != '\0'; ++i ){
-        if( !cateorize( str[i] ) ) return 0;
+        if( !categorize( str[i] ) ) return 0;
     }
     return 1;
 }
@@ -1328,7 +1330,7 @@ int UINT32_to_UTF8( char *str, uint32_t num, int endianness ){
 	uint8_t *arr = (uint8_t *)(&num);
 
 	if( endianness == SDL_BIG_ENDIAN ){
-		//printf("[%08X] arr: %02X, %02X, %02X, %02X\n", num, arr[0], arr[1], arr[2], arr[3] );
+		//SDL_Log("[%08X] arr: %02X, %02X, %02X, %02X\n", num, arr[0], arr[1], arr[2], arr[3] );
 		if( arr[3] > 0 ){
 			str[0] = arr[3];
 			str[1] = arr[2];
@@ -1368,160 +1370,12 @@ int UINT32_to_UTF8( char *str, uint32_t num, int endianness ){
 	return 0;
 }
 
-
-void print_string_with_escape_chars_visible( char *str ){
-	
-	for( int i = 0; str[i] != '\0'; ++i ){
-		switch( str[i] ){
-			case '\'': // 	single quote 	byte 0x27 in ASCII encoding
-				printf( "\\'" );
-				break;
-			case '\"':// 	double quote 	byte 0x22 in ASCII encoding
-				printf( "\\\"" );
-				break;
-			case '\?':// 	question mark 	byte 0x3f in ASCII encoding
-				printf( "\\?" );
-				break;
-			case '\\':// 	backslash 	byte 0x5c in ASCII encoding
-				printf( "\\\\" );
-				break;
-			case '\a'://	audible bell 	byte 0x07 in ASCII encoding
-				printf( "\\a" );
-				break;
-			case '\b'://	backspace 	byte 0x08 in ASCII encoding
-				printf( "\\b" );
-				break;
-			case '\f'://	form feed - new page 	byte 0x0c in ASCII encoding
-				printf( "\\f" );
-				break;
-			case '\n'://	line feed - new line 	byte 0x0a in ASCII encoding
-				printf( "\\n" );
-				break;
-			case '\r'://	carriage return 	byte 0x0d in ASCII encoding
-				printf( "\\r" );
-				break;
-			case '\t'://	horizontal tab 	byte 0x09 in ASCII encoding
-				printf( "\\t" );
-				break;
-			case '\v'://	vertical tab 	byte 0x0b in ASCII encoding 
-				printf( "\\v" );
-				break;
-			default:
-				putchar( str[i] );
-		}
-	}
-	puts("");
-}
-
-void hard_print( char *str, int N ){
-	
-	putchar( '\"' );
-	for( int i = 0; i < N; ++i ){
-		switch( str[i] ){
-			case '\0': // 	terminator
-				printf( "\\0" );
-				break;
-			case '\'': // 	single quote 	byte 0x27 in ASCII encoding
-				printf( "\\'" );
-				break;
-			case '\"':// 	double quote 	byte 0x22 in ASCII encoding
-				printf( "\\\"" );
-				break;
-			case '\?':// 	question mark 	byte 0x3f in ASCII encoding
-				printf( "\\?" );
-				break;
-			case '\\':// 	backslash 	byte 0x5c in ASCII encoding
-				printf( "\\\\" );
-				break;
-			case '\a'://	audible bell 	byte 0x07 in ASCII encoding
-				printf( "\\a" );
-				break;
-			case '\b'://	backspace 	byte 0x08 in ASCII encoding
-				printf( "\\b" );
-				break;
-			case '\f'://	form feed - new page 	byte 0x0c in ASCII encoding
-				printf( "\\f" );
-				break;
-			case '\n'://	line feed - new line 	byte 0x0a in ASCII encoding
-				printf( "\\n" );
-				break;
-			case '\r'://	carriage return 	byte 0x0d in ASCII encoding
-				printf( "\\r" );
-				break;
-			case '\t'://	horizontal tab 	byte 0x09 in ASCII encoding
-				printf( "\\t" );
-				break;
-			case '\v'://	vertical tab 	byte 0x0b in ASCII encoding 
-				printf( "\\v" );
-				break;
-			default:
-				putchar( str[i] );
-		}
-	}
-	puts("\"");
-}
-
-void hard_print_f( FILE *f, int N ){
-	
-	long int original_pos = ftell( f );
-	char c = getc(f);
-	putchar( '\"' );
-	for( int i = 0; i < N; ++i ){
-		switch( c ){
-			case EOF:
-				printf( "EOF\"\n" );
-				fseek( f, original_pos, SEEK_SET );
-				return;
-			case '\0': // 	terminator
-				printf( "\\0" );
-				break;
-			case '\"':// 	double quote 	byte 0x22 in ASCII encoding
-				printf( "\\\"" );
-				break;
-			case '\?':// 	question mark 	byte 0x3f in ASCII encoding
-				printf( "\\?" );
-				break;
-			case '\\':// 	backslash 	byte 0x5c in ASCII encoding
-				printf( "\\\\" );
-				break;
-			case '\a'://	audible bell 	byte 0x07 in ASCII encoding
-				printf( "\\a" );
-				break;
-			case '\b'://	backspace 	byte 0x08 in ASCII encoding
-				printf( "\\b" );
-				break;
-			case '\f'://	form feed - new page 	byte 0x0c in ASCII encoding
-				printf( "\\f" );
-				break;
-			case '\n'://	line feed - new line 	byte 0x0a in ASCII encoding
-				printf( "\\n" );
-				break;
-			case '\r'://	carriage return 	byte 0x0d in ASCII encoding
-				printf( "\\r" );
-				break;
-			case '\t'://	horizontal tab 	byte 0x09 in ASCII encoding
-				printf( "\\t" );
-				break;
-			case '\v'://	vertical tab 	byte 0x0b in ASCII encoding 
-				printf( "\\v" );
-				break;
-			default:
-				putchar( c );
-		}
-		c = getc(f);
-	}
-
-	puts("\"");
-	fseek( f, original_pos, SEEK_SET );
-}
-
-
 int SDL_framerateDelay( int frame_period ){
     static Uint64 then = 0;
     Uint64 now = SDL_GetTicks();
     int elapsed = now - then;
     int delay = frame_period - elapsed;
-    //printf("%d - (%d - %d) = %d\n", frame_period, now, then, delay );
+    //SDL_Log("%d - (%d - %d) = %d\n", frame_period, now, then, delay );
     if( delay > 0 ){
         SDL_Delay( delay );
         elapsed += delay;
@@ -1536,19 +1390,19 @@ bool i2d_equals( index2d A, index2d B ){
 }
 
 int i2d_manhattan( index2d A, index2d B ){
-   return abs(A.i - B.i) + abs(A.j - B.j);
+   return SDL_abs(A.i - B.i) + SDL_abs(A.j - B.j);
 }
 
 
-int rect_area( SDL_Rect *r ){
+int rect_area( SDL_FRect *r ){
 	return r->w * r->h;
 }
 
 void rectCluster_init( rectCluster *rC, int x, int y, int w, int h ){
 	rC->len = 1;
 	rC->size = 4;
-	rC->original = (SDL_Rect){x,y,w,h};
-	rC->rcts = malloc( rC->size * sizeof(SDL_Rect) );
+	rC->original = (SDL_FRect){x,y,w,h};
+	rC->rcts = SDL_malloc( rC->size * sizeof(SDL_FRect) );
 	rC->rcts[0] = rC->original;
 }
 
@@ -1556,13 +1410,13 @@ static void rectCluster_append( rectCluster *rC, int x, int y, int w, int h ){
 
 	if( rC->len >= rC->size ){
 		rC->size *= 2;
-		rC->rcts = realloc( rC->rcts, rC->size * sizeof(SDL_Rect) );
+		rC->rcts = SDL_realloc( rC->rcts, rC->size * sizeof(SDL_FRect) );
 	}
-	rC->rcts[ rC->len ] = (SDL_Rect){x,y,w,h};
+	rC->rcts[ rC->len ] = (SDL_FRect){x,y,w,h};
 	rC->len += 1;
 }
 
-void clip_rectCluster( rectCluster *rC, SDL_Rect cut ){
+void clip_rectCluster( rectCluster *rC, SDL_FRect cut ){
 
 	int cut_r = cut.x + cut.w;
  	int cut_b = cut.y + cut.h;
@@ -1591,7 +1445,7 @@ void clip_rectCluster( rectCluster *rC, SDL_Rect cut ){
 
 		int total = top_in + bot_in + lef_in + rig_in;
 
-		//printf("\n%d: %d%d%d%d = %d. ", i, top_in, bot_in, lef_in, rig_in, total );
+		//SDL_Log("\n%d: %d%d%d%d = %d. ", i, top_in, bot_in, lef_in, rig_in, total );
 
 		switch( total ){
 
@@ -1680,7 +1534,7 @@ void clip_rectCluster( rectCluster *rC, SDL_Rect cut ){
 				break;
 		}
 
-		//if( rC->rcts[i].w < 0 ) printf("Largura Negativa!\n");
+		//if( rC->rcts[i].w < 0 ) SDL_Log("Largura Negativa!\n");
 	}
 }
 
