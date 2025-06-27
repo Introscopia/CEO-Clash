@@ -1,5 +1,5 @@
 (
-echo cd "C:\Users\Introscopia\Projetos\Educacional\#Intuit.lab\2025-S01\CEOClash"
+echo cd "D:\Users\G3\Desktop\CEO-Clash-main\CEO-Clash-main"
 echo make quick
-) | C:\MinGW\W64\w64devkit\w64devkit.exe
-C:\MinGW\W64\w64devkit\w64devkit.exe
+) | C:\W64\w64devkit\w64devkit.exe
+C:\W64\w64devkit\w64devkit.exe
