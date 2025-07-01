@@ -1,6 +1,6 @@
 CC = gcc
 
-OBJS = basics.c vec2d.c transform.c ceo.c 
+OBJS = basics.c vec2d.c transform.c cvec.c ceo.c 
 
 COMPILER_FLAGS_RELEASE = -w -Wl,-subsystem,windows
 COMPILER_FLAGS_QUICK = -w
@@ -23,7 +23,7 @@ ifeq ($(DETECTED_OS),Windows)
 	LIBRARY_PATHS += -LC:/SDL/SDL3_image-3.2.4/x86_64-w64-mingw32/lib
 #	LIBRARY_PATHS += -LC:/SDL/SDL3_ttf-3.2.2/x86_64-w64-mingw32/lib
 
-	LINKER_FLAGS = -lmingw32 -lSDL3 -lSDL3_image #-lSDL3_ttf
+	LINKER_FLAGS = -lSDL3 -lSDL3_image #-lSDL3_ttf
 else
 	INCLUDE_PATHS = -I/usr/include/SDL3
 	LINKER_FLAGS = -lm -lSDL3 -lSDL3_image #-lSDL3_ttf
