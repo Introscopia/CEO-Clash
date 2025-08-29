@@ -278,6 +278,7 @@ void display_Fighter( SDL_Renderer *R, Fighter *F ){
     SDL_RenderTextureRotated( R, F->spritesheet, F->srcs + frm, &dst, 0, NULL, flip );
 }
 
+
 void Fighter_tick_frame( Fighter *F ){
 
     F->frame += 1;
@@ -399,13 +400,14 @@ int main(int argc, char *argv[]){
 
 
     Fighter P1 = {0};
-    Fighter_load_spritesheet( R, &P1, "Assets/venom abr2" );
+    Fighter_load_spritesheet( R, &P1, "Assets/Susk_Sprites" );
     P1.pos = v2d( 100, FLOOR_Y );
     P1.walkspeed = 8;
     P1.jumppower = -24;
     P1.direcao = 0;
 
     Fighter P2 = {0};
+    Fighter_load_spritesheet( R, &P2, "Assets/venom abr2" );
     P2.pos = v2d( width-100, FLOOR_Y );
     P2.walkspeed = 5;
     P2.jumppower = -40;
@@ -518,6 +520,12 @@ int main(int argc, char *argv[]){
         }
 
         display_Fighter( R, &P1 );
+
+        if( SDL_GetTicks() >= next_ani_tick ){
+            Fighter_tick_frame( &P2 );
+            next_ani_tick = SDL_GetTicks() + animation_period;
+        }
+        display_Fighter( R, &P2 );
 
         //int flip2;
         //if( P2.direcao > 0 ) flip2 = 1;
